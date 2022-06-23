@@ -192,9 +192,7 @@ def main():
         trainer.fit(model, **trainer_fit_params)
 
         trained_model = model
-    model = NQ_IR(args)
 
-    trained_model = model
     # exit()
 
     # trained_model = NQ_IR.load_from_checkpoint(

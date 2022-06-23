@@ -184,9 +184,7 @@ def main():
         trainer.fit(model, **trainer_fit_params)
 
         trained_model = model
-    # Remove later
-    model = NQ_IR(args)
-    trained_model = model
+
     test_loader = trained_model.test_dataloader()
 
     mediator = Mediator(trained_model, test_loader)
