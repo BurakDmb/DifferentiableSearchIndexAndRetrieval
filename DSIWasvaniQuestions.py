@@ -154,7 +154,7 @@ class Sampler():
 
 
 class NQData(Dataset):
-    # task_type is either 'indexing' or 'retrival' or 'indexing_retrival'
+    # task_type is either 'indexing' or 'retrieval' or 'indexing_retrieval'
     def __init__(
             self, df, tokenizer, type_path, num_samples, task_type,
             input_length=4096, output_length=4096, print_text=False):
@@ -168,8 +168,9 @@ class NQData(Dataset):
         self.dataset = []
         self.task_type = task_type
         self.indexing_task_name = 'indexing'
-        self.retrival_task_name = 'retrival'
-        self.retrival_str_max_len = 20
+        self.retrieval_task_name = 'retrieval'
+        self.retrieval_task_name = 'indexing_retrieval'
+        self.retrieval_str_max_len = 20
 
         self.indexing_str_max_len = output_length
 
@@ -198,14 +199,14 @@ class NQData(Dataset):
 
             self.indices[0].extend(list(range(len(self.dataset))))
 
-        elif task_type == self.retrival_task_name:
+        elif task_type == self.retrieval_task_name:
 
             self.indices = [[]]
             self.dataset = self.get_dataset_list(
                 data=df,
                 type_path=type_path,
                 col='question_text',
-                task_name=self.retrival_task_name,
+                task_name=self.retrieval_task_name,
                 split_size=val_size,
                 splits=True
                 )
@@ -213,7 +214,7 @@ class NQData(Dataset):
 
             self.indices[0].extend(list(range(len(self.dataset))))
 
-        elif task_type == 'indexing_retrival':
+        elif task_type == 'indexing_retrieval':
             inp_cols = ['document_text', 'question_text']
             self.indices = [[] for _ in range(len(inp_cols))]
 
@@ -235,7 +236,7 @@ class NQData(Dataset):
                         data=df,
                         type_path=type_path,
                         col=col,
-                        task_name=self.retrival_task_name,
+                        task_name=self.retrieval_task_name,
                         split_size=val_size,
                         splits=True)
 
@@ -261,7 +262,7 @@ class NQData(Dataset):
         dataset = []
 
         if self.type_path == "train":
-            if task_name == "retrival":
+            if task_name == "retrieval":
 
                 question_indices = []
 
@@ -297,11 +298,10 @@ class NQData(Dataset):
 
                 d1[col] = task_name + ': ' + d1[col]
                 d1.columns = ['inp', 'lbl']
-                # d1 = d1[d1["inp"] != "retrival: -"]
+                # d1 = d1[d1["inp"] != "retrieval: -"]
                 dataset.extend(d1.to_dict(orient='records'))
                 # print(d1)
                 print(len(d1))
-                exit()
                 return dataset
 
         if self.type_path == "test":
@@ -309,7 +309,7 @@ class NQData(Dataset):
         else:
             d1 = data[[col, 'doc_id']]
         # print(type_path, task_name, split_size, col)
-        if task_name == "retrival":
+        if task_name == "retrieval":
             # mm = 15
             pass
 
@@ -341,8 +341,8 @@ class NQData(Dataset):
         input_ = example_batch['inp']
         target_ = example_batch['lbl']
 
-        if example_batch['inp'].startswith(self.retrival_task_name):
-            max_length = self.retrival_str_max_len
+        if example_batch['inp'].startswith(self.retrieval_task_name):
+            max_length = self.retrieval_str_max_len
         else:
             max_length = self.indexing_str_max_len
 
@@ -694,7 +694,7 @@ class NQ_IR(pl.LightningModule):
         # n_samples = self.n_obs['test']
         test_dataset = get_dataset(
             tokenizer=self.tokenizer, type_path="test",
-            task_type='retrival', num_samples=93,
+            task_type='retrieval', num_samples=93,
             args=self.hparams, df=df_query)
 
         test_loader = DataLoader(
@@ -742,7 +742,7 @@ class NQ_IR(pl.LightningModule):
 
 
 # checkpoints_dir = 't5-small-512_wasvani_rows_checkpoint/'
-checkpoints_dir = f"{model_prefix}_{str(data_len)}_rows_checkpoint/"
+checkpoints_dir = f"waswani_{model_prefix}_{str(data_len)}_rows_checkpoint/"
 checkpoint_files = sorted(os.listdir(checkpoints_dir))
 resume_from_checkpoint_path = checkpoints_dir
 if resume_checkpoint:

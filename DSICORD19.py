@@ -57,12 +57,12 @@ print(df_query)
 print(df_query["question_text"])
 print(df_query["doc_id"])
 
-exit()
 model_name = "t5-small"
 token_len = 512  # deep tokenizer's output size currently 512
 model_prefix = f"{model_name}-{token_len}"
 
-QUERY_INSTANCE_RATIO_IN_TRAINING_DATA = 5 # 5 -> 1/5 , 1 -> all queries are present in the training dataset, 3-> 1/3
+# 5 -> 1/5 , 1 -> all queries are present in the training dataset, 3-> 1/3
+QUERY_INSTANCE_RATIO_IN_TRAINING_DATA = 5
 
 
 def normalize_answer(s):
@@ -159,7 +159,7 @@ class Sampler():
 
 
 class NQData(Dataset):
-    # task_type is either 'indexing' or 'retrival' or 'indexing_retrival'
+    # task_type is either 'indexing' or 'retrieval' or 'indexing_retrieval'
     def __init__(
             self, df, tokenizer, type_path, num_samples, task_type,
             input_length=4096, output_length=4096, print_text=False):
@@ -173,8 +173,8 @@ class NQData(Dataset):
         self.dataset = []
         self.task_type = task_type
         self.indexing_task_name = 'indexing'
-        self.retrival_task_name = 'retrival'
-        self.retrival_str_max_len = 20
+        self.retrieval_task_name = 'retrieval'
+        self.retrieval_str_max_len = 20
 
         self.indexing_str_max_len = output_length
 
@@ -203,14 +203,14 @@ class NQData(Dataset):
 
             self.indices[0].extend(list(range(len(self.dataset))))
 
-        elif task_type == self.retrival_task_name:
+        elif task_type == self.retrieval_task_name:
 
             self.indices = [[]]
             self.dataset = self.get_dataset_list(
                 data=df,
                 type_path=type_path,
                 col='question_text',
-                task_name=self.retrival_task_name,
+                task_name=self.retrieval_task_name,
                 split_size=val_size,
                 splits=True
                 )
@@ -218,7 +218,7 @@ class NQData(Dataset):
 
             self.indices[0].extend(list(range(len(self.dataset))))
 
-        elif task_type == 'indexing_retrival':
+        elif task_type == 'indexing_retrieval':
             inp_cols = ['document_text', 'question_text']
             self.indices = [[] for _ in range(len(inp_cols))]
 
@@ -240,7 +240,7 @@ class NQData(Dataset):
                         data=df,
                         type_path=type_path,
                         col=col,
-                        task_name=self.retrival_task_name,
+                        task_name=self.retrieval_task_name,
                         split_size=val_size,
                         splits=True)
 
@@ -266,7 +266,7 @@ class NQData(Dataset):
         dataset = []
 
         if self.type_path == "train":
-            if task_name == "retrival":
+            if task_name == "retrieval":
 
                 question_indices = []
 
@@ -278,9 +278,17 @@ class NQData(Dataset):
                 print(candidate_queries)
                 print(len(candidate_queries))
 
-                considered_test_count = (len(candidate_queries) // QUERY_INSTANCE_RATIO_IN_TRAINING_DATA) if (len(candidate_queries) // QUERY_INSTANCE_RATIO_IN_TRAINING_DATA) > 0 else 1
+                considered_test_count = (
+                    len(
+                        candidate_queries
+                        ) // QUERY_INSTANCE_RATIO_IN_TRAINING_DATA
+                        ) if (
+                            len(candidate_queries)
+                            // QUERY_INSTANCE_RATIO_IN_TRAINING_DATA
+                            ) > 0 else 1
 
-                picked_queries = random.choices(candidate_queries, k=considered_test_count)
+                picked_queries = random.choices(
+                    candidate_queries, k=considered_test_count)
 
                 for k, v in picked_queries:
                     # elements = list(v)
@@ -294,7 +302,7 @@ class NQData(Dataset):
 
                 d1[col] = task_name + ': ' + d1[col]
                 d1.columns = ['inp', 'lbl']
-                # d1 = d1[d1["inp"] != "retrival: -"]
+                # d1 = d1[d1["inp"] != "retrieval: -"]
                 dataset.extend(d1.to_dict(orient='records'))
                 # print(d1)
                 print(len(d1))
@@ -306,7 +314,7 @@ class NQData(Dataset):
         else:
             d1 = data[[col, 'doc_id']]
         # print(type_path, task_name, split_size, col)
-        if task_name == "retrival":
+        if task_name == "retrieval":
             # mm = 15
             pass
 
@@ -338,8 +346,8 @@ class NQData(Dataset):
         input_ = example_batch['inp']
         target_ = example_batch['lbl']
 
-        if example_batch['inp'].startswith(self.retrival_task_name):
-            max_length = self.retrival_str_max_len
+        if example_batch['inp'].startswith(self.retrieval_task_name):
+            max_length = self.retrieval_str_max_len
         else:
             max_length = self.indexing_str_max_len
 
@@ -643,20 +651,26 @@ class NQ_IR(pl.LightningModule):
 
         n_samples = self.n_obs['train']
 
-        train_dataset = get_dataset(tokenizer=self.tokenizer, type_path="train", task_type=TASK_TYPE,
-                                    num_samples=n_samples, args=self.hparams, df=df_document)
-        dataloader = DataLoader(train_dataset,
-                                batch_sampler=Sampler(train_dataset.get_index_list(), self.hparams.train_batch_size),
-                                num_workers=8
-                                )
+        train_dataset = get_dataset(
+            tokenizer=self.tokenizer, type_path="train",
+            task_type=TASK_TYPE, num_samples=n_samples,
+            args=self.hparams, df=df_document)
+        dataloader = DataLoader(
+            train_dataset,
+            batch_sampler=Sampler(
+                train_dataset.get_index_list(), self.hparams.train_batch_size),
+            num_workers=8)
 
         t_total = (
-                (len(dataloader.dataset) // (self.hparams.train_batch_size * max(1, self.hparams.n_gpu)))
-                // self.hparams.gradient_accumulation_steps
-                * float(self.hparams.num_train_epochs)
+            (len(dataloader.dataset) // (
+                self.hparams.train_batch_size * max(1, self.hparams.n_gpu)))
+            // self.hparams.gradient_accumulation_steps
+            * float(self.hparams.num_train_epochs)
         )
         scheduler = get_linear_schedule_with_warmup(
-            self.opt, num_warmup_steps=self.hparams.warmup_steps, num_training_steps=t_total
+            self.opt,
+            num_warmup_steps=self.hparams.warmup_steps,
+            num_training_steps=t_total
         )
         self.lr_scheduler = scheduler
 
@@ -685,7 +699,7 @@ class NQ_IR(pl.LightningModule):
         # n_samples = self.n_obs['test']
         test_dataset = get_dataset(
             tokenizer=self.tokenizer, type_path="test",
-            task_type='retrival', num_samples=50,
+            task_type='retrieval', num_samples=50,
             args=self.hparams, df=df_query)
 
         test_loader = DataLoader(
@@ -733,7 +747,7 @@ class NQ_IR(pl.LightningModule):
 
 
 # checkpoints_dir = 't5-small-512_wasvani_rows_checkpoint/'
-checkpoints_dir = f"{model_prefix}_{str(data_len)}_rows_checkpoint/"
+checkpoints_dir = f"cord19_{model_prefix}_{str(data_len)}_rows_checkpoint/"
 checkpoint_files = sorted(os.listdir(checkpoints_dir))
 resume_from_checkpoint_path = checkpoints_dir
 if resume_checkpoint:
@@ -746,7 +760,7 @@ if resume_checkpoint:
 
 # log_dir = "./logs/log_t5-small-512_50000_rows_2022_05_01_13_07_19.csv"
 log_dir = (
-    "./logs/wasvanilog_t5-small-512_50000_rows_" +
+    "./logs/cord19log_t5-small-512_224848_rows_" +
     datetime.today().strftime('%Y_%m_%d_%H_%M_%S')+".csv")
 print('Log file path:', log_dir)
 
