@@ -1,0 +1,8 @@
+**.csv
+!data_100K_clipped_documents_1k_words.csv
+**logs/
+**.gz
+.vscode
+.ipynb_checkpoints
+**checkpoint/
+**.pyc
