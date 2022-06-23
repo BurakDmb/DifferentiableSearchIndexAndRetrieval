@@ -2,6 +2,7 @@ import numpy as np
 import nltk.metrics.scores
 import math
 import matplotlib.pyplot as plt
+from tqdm.auto import tqdm
 
 
 class EvaluationCORD19:
@@ -49,7 +50,7 @@ class EvaluationCORD19:
 
         calculated_precisions_at_11 = [0]*11
 
-        for query_id in self.queries:
+        for query_id in tqdm(self.queries):
 
             processed_query = self.queries[query_id]
 

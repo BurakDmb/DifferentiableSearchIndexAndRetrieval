@@ -2,6 +2,7 @@ import numpy as np
 import nltk.metrics.scores
 import math
 import matplotlib.pyplot as plt
+from tqdm.auto import tqdm
 
 
 class EvaluationMMARCO:
@@ -47,7 +48,7 @@ class EvaluationMMARCO:
 
         total_prediction_count = 0
 
-        for query_id in self.queries:
+        for query_id in tqdm(self.queries):
 
             processed_query = self.queries[query_id]
 

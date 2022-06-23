@@ -184,7 +184,9 @@ def main():
         trainer.fit(model, **trainer_fit_params)
 
         trained_model = model
-
+    # Remove later
+    model = NQ_IR(args)
+    trained_model = model
     test_loader = trained_model.test_dataloader()
 
     mediator = Mediator(trained_model, test_loader)
@@ -869,8 +871,8 @@ class NQ_IR(pl.LightningModule):
             use_cache=True,
             decoder_attention_mask=batch['target_mask'],
             max_length=6,
-            num_beams=20,
-            num_return_sequences=20)
+            num_beams=100,
+            num_return_sequences=100)
 
         preds = self.ids_to_clean_text(generated_ids)
         preds = [normalize_answer(s) for s in preds if len(s) > 0 and s != " "]
