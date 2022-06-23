@@ -26,9 +26,17 @@ from transformers import (
     get_linear_schedule_with_warmup
 )
 
+
+class Relevance:
+    def __init__(self):
+        self.doc_id = None
+        self.query_id = None
+        self.relevance = None
+
+
 # To use the latest checkpoint, set this variable to True.
 # For training, set this to False.
-RESUME_CHECKPOINT = False
+RESUME_CHECKPOINT = True
 TASK_TYPE = "indexing_retrieval"  # or "indexing_retrieval"
 
 # Ratio is the number of queries present in the training dataset
@@ -37,7 +45,7 @@ QUERY_INSTANCE_RATIO_IN_TRAINING_DATA = 0.2
 random.seed(59)
 np.random.seed(37)
 
-df_document = pickle.load(open("mmarco.pkl", "rb"))
+df_document = pickle.load(open("mmarcodataframe.pkl", "rb"))
 print(
     'Records where doc_id is null',
     len(df_document[df_document['doc_id'].isna()]))
@@ -104,7 +112,7 @@ def main():
         adam_epsilon=1e-8,
         warmup_steps=0,
         # TODO: Change it to 64
-        train_batch_size=64,
+        train_batch_size=1,
         eval_batch_size=1,
         num_train_epochs=50,
         gradient_accumulation_steps=4,

@@ -104,7 +104,7 @@ def main():
         adam_epsilon=1e-8,
         warmup_steps=0,
         # TODO: Change it to 64
-        train_batch_size=1,
+        train_batch_size=32,
         eval_batch_size=1,
         num_train_epochs=50,
         gradient_accumulation_steps=4,
@@ -197,6 +197,13 @@ def main():
         processed_queries, query_relevances)
 
     evaluator.evaluate()
+
+
+class Relevance:
+    def __init__(self):
+        self.doc_id = None
+        self.query_id = None
+        self.relevance = None
 
 
 def normalize_answer(s):
@@ -862,8 +869,8 @@ class NQ_IR(pl.LightningModule):
             use_cache=True,
             decoder_attention_mask=batch['target_mask'],
             max_length=6,
-            num_beams=100,
-            num_return_sequences=100)
+            num_beams=20,
+            num_return_sequences=20)
 
         preds = self.ids_to_clean_text(generated_ids)
         preds = [normalize_answer(s) for s in preds if len(s) > 0 and s != " "]
