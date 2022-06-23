@@ -28,8 +28,11 @@ from transformers import (
 
 # To use the latest checkpoint, set this variable to True.
 # For training, set this to False.
-resume_checkpoint = False
+RESUME_CHECKPOINT = True
 TASK_TYPE = "indexing_retrieval"  # or "indexing_retrieval"
+
+# Ratio is the number of queries present in the training dataset
+QUERY_INSTANCE_RATIO_IN_TRAINING_DATA = 0.2
 
 random.seed(59)
 np.random.seed(37)
@@ -56,8 +59,144 @@ model_name = "t5-small"
 token_len = 512  # deep tokenizer's output size currently 512
 model_prefix = f"{model_name}-{token_len}"
 
-# 5 -> 1/5 , 1 -> all queries are present in the training dataset, 3-> 1/3
-QUERY_INSTANCE_RATIO_IN_TRAINING_DATA = 5
+
+def main():
+
+    # checkpoints_dir = 't5-small-512_wasvani_rows_checkpoint/'
+    checkpoints_dir = \
+        f"""waswani_{
+            QUERY_INSTANCE_RATIO_IN_TRAINING_DATA
+            }_{model_prefix}_{str(data_len)}_rows_checkpoint/"""
+    checkpoint_files = sorted(os.listdir(checkpoints_dir))
+    resume_from_checkpoint_path = checkpoints_dir
+    if RESUME_CHECKPOINT:
+        if len(checkpoint_files) == 0:
+            resume_from_checkpoint_path = None
+            raise Exception('No checkpoint found')
+        else:
+            resume_from_checkpoint_path = (
+                checkpoints_dir + checkpoint_files[-1])
+        print(resume_from_checkpoint_path)
+
+    # log_dir = "./logs/log_t5-small-512_50000_rows_2022_05_01_13_07_19.csv"
+    log_dir = (
+        "./logs/wasvanilog_t5-small-512_50000_rows_" +
+        datetime.today().strftime('%Y_%m_%d_%H_%M_%S')+".csv")
+    print('Log file path:', log_dir)
+
+    args_dict = dict(
+        # output_dir: path to save the checkpoints
+        output_dir=f"./{model_prefix}_{str(data_len)}_rows_final",
+        log_dir=log_dir,
+        model_name_or_path=model_name,
+        tokenizer_name_or_path=model_name,
+        max_input_length=token_len,
+        max_output_length=token_len,
+        freeze_encoder=False,
+        freeze_embeds=False,
+        learning_rate=3e-4,
+        weight_decay=0.0,
+        adam_epsilon=1e-8,
+        warmup_steps=0,
+        # TODO: Change it to 64
+        train_batch_size=64,
+        eval_batch_size=1,
+        num_train_epochs=50,
+        gradient_accumulation_steps=4,
+        # Number Of gpu
+        n_gpu=1,
+        resume_from_checkpoint_path=resume_from_checkpoint_path,
+        val_check_interval=1,
+        check_val_every_n_epoch=1,
+        n_val=-1,
+        n_train=-1,
+        n_test=-1,
+        early_stop_callback=False,
+        # fp_16: if you want to enable 16-bit training
+        # then install apex and set this to true
+        fp_16=False,
+        # opt_level: you can find out more on optimisation levels here
+        # https://nvidia.github.io/apex/amp.html#opt-levels-and-properties
+        # opt_level='O1',
+        # max_grad_norm: if you enable 16-bit training then set this to
+        # a sensible value, 0.5 is a good default
+        max_grad_norm=1.0,
+        seed=42,
+    )
+
+    args = argparse.Namespace(**args_dict)
+
+    # Define Checkpoint function
+    # monitor - monitors the metric and saves the
+    # chekpoint with the mode value.
+    # Here mode=max so saves the checkpoint with max metric value.
+    # save_top_k saves lastest k checkpoints
+    checkpoint_callback = pl.callbacks.ModelCheckpoint(
+        dirpath=f"./{model_prefix}_{str(data_len)}_rows_checkpoint",
+        monitor="avg_val_loss", mode="min", save_top_k=1)
+
+    # accumulate_grad_batches stores the gradients for a set of
+    # batches and then updates the model params.
+    # So if batch size=8 and accumulate_grad_batches= 2 then the
+    # gradients are accumulated for 2 batches and the model
+    # params are updated only at the end of the 2nd batch.
+    # The default was to update the model params at the end of each batch
+
+    train_params = dict(
+        # accumulate_grad_batches=args.gradient_accumulation_steps,
+        # with this, total batchsize= batchsize* accumulate_grad_batches
+        gpus=args.n_gpu,
+        max_epochs=args.num_train_epochs,
+        precision=16 if args.fp_16 else 32,
+        gradient_clip_val=args.max_grad_norm,
+        checkpoint_callback=checkpoint_callback,
+        check_val_every_n_epoch=args.check_val_every_n_epoch,
+        callbacks=[checkpoint_callback],  # [LoggingCallback()],
+
+        # logger=wandb_logger,
+        # val_check_interval=args.val_check_interval,
+        # amp_level=args.opt_level,
+        # resume_from_checkpoint=args.resume_from_checkpoint, # depreciated
+        # progress_bar_refresh_rate=0
+        # log_every_n_steps=1
+    )
+
+    if RESUME_CHECKPOINT:
+        trainer_fit_params = dict(
+            # to resume from this checkpoint
+            ckpt_path=args.resume_from_checkpoint_path,
+            )
+        trained_model = NQ_IR.load_from_checkpoint(
+            resume_from_checkpoint_path, hparams=args)
+    else:
+        trainer_fit_params = dict(
+            # to resume from this checkpoint
+            # ckpt_path=args.resume_from_checkpoint_path,
+            )
+        model = NQ_IR(args)
+        trainer = pl.Trainer(**train_params, fast_dev_run=False)
+
+        trainer.fit(model, **trainer_fit_params)
+
+        trained_model = model
+
+    # exit()
+
+    # trained_model = NQ_IR.load_from_checkpoint(
+    #     resume_from_checkpoint_path, hparams=args)
+
+    test_loader = trained_model.test_dataloader()
+
+    mediator = Mediator(trained_model, test_loader)
+
+    doc_ids, processed_docs, processed_queries, query_relevances = pickle.load(
+        open("wasvani.pkl", "rb"))
+
+    evaluator = EvaluationWaswani(
+        doc_ids, processed_docs, mediator,
+        processed_queries, query_relevances)
+
+    evaluator.evaluate()
 
 
 def normalize_answer(s):
@@ -169,7 +308,7 @@ class NQData(Dataset):
         self.task_type = task_type
         self.indexing_task_name = 'indexing'
         self.retrieval_task_name = 'retrieval'
-        self.retrieval_task_name = 'indexing_retrieval'
+        self.indexing_retrieval_task_name = 'indexing_retrieval'
         self.retrieval_str_max_len = 20
 
         self.indexing_str_max_len = output_length
@@ -214,7 +353,7 @@ class NQData(Dataset):
 
             self.indices[0].extend(list(range(len(self.dataset))))
 
-        elif task_type == 'indexing_retrieval':
+        elif task_type == self.indexing_retrieval_task_name:
             inp_cols = ['document_text', 'question_text']
             self.indices = [[] for _ in range(len(inp_cols))]
 
@@ -274,14 +413,11 @@ class NQData(Dataset):
                 print(candidate_queries)
                 print(len(candidate_queries))
 
-                considered_test_count = (
-                    len(
-                        candidate_queries
-                        ) // QUERY_INSTANCE_RATIO_IN_TRAINING_DATA
-                        ) if (
-                            len(candidate_queries)
-                            // QUERY_INSTANCE_RATIO_IN_TRAINING_DATA
-                            ) > 0 else 1
+                considered_test_count = min(
+                    len(candidate_queries),
+                    max(1, int(
+                        len(candidate_queries)
+                        * QUERY_INSTANCE_RATIO_IN_TRAINING_DATA)))
 
                 picked_queries = random.choices(
                     candidate_queries, k=considered_test_count)
@@ -741,131 +877,9 @@ class NQ_IR(pl.LightningModule):
         return preds
 
 
-# checkpoints_dir = 't5-small-512_wasvani_rows_checkpoint/'
-checkpoints_dir = f"waswani_{model_prefix}_{str(data_len)}_rows_checkpoint/"
-checkpoint_files = sorted(os.listdir(checkpoints_dir))
-resume_from_checkpoint_path = checkpoints_dir
-if resume_checkpoint:
-    if len(checkpoint_files) == 0:
-        resume_from_checkpoint_path = None
-        raise Exception('No checkpoint found')
-    else:
-        resume_from_checkpoint_path = checkpoints_dir + checkpoint_files[-1]
-    print(resume_from_checkpoint_path)
-
-# log_dir = "./logs/log_t5-small-512_50000_rows_2022_05_01_13_07_19.csv"
-log_dir = (
-    "./logs/wasvanilog_t5-small-512_50000_rows_" +
-    datetime.today().strftime('%Y_%m_%d_%H_%M_%S')+".csv")
-print('Log file path:', log_dir)
-
-args_dict = dict(
-    # output_dir: path to save the checkpoints
-    output_dir=f"./{model_prefix}_{str(data_len)}_rows_final",
-    log_dir=log_dir,
-    model_name_or_path=model_name,
-    tokenizer_name_or_path=model_name,
-    max_input_length=token_len,
-    max_output_length=token_len,
-    freeze_encoder=False,
-    freeze_embeds=False,
-    learning_rate=3e-4,
-    weight_decay=0.0,
-    adam_epsilon=1e-8,
-    warmup_steps=0,
-    # TODO: Change it to 64
-    train_batch_size=64,
-    eval_batch_size=1,
-    num_train_epochs=50,
-    gradient_accumulation_steps=4,
-    # Number Of gpu
-    n_gpu=1,
-    resume_from_checkpoint_path=resume_from_checkpoint_path,
-    val_check_interval=1,
-    check_val_every_n_epoch=1,
-    n_val=-1,
-    n_train=-1,
-    n_test=-1,
-    early_stop_callback=False,
-    # fp_16: if you want to enable 16-bit training
-    # then install apex and set this to true
-    fp_16=False,
-    # opt_level: you can find out more on optimisation levels here
-    # https://nvidia.github.io/apex/amp.html#opt-levels-and-properties
-    # opt_level='O1',
-    # max_grad_norm: if you enable 16-bit training then set this to
-    # a sensible value, 0.5 is a good default
-    max_grad_norm=1.0,
-    seed=42,
-)
-
-args = argparse.Namespace(**args_dict)
-
-# Define Checkpoint function
-# monitor - monitors the metric and saves the chekpoint with the mode value.
-# Here mode=max so saves the checkpoint with max metric value.
-# save_top_k saves lastest k checkpoints
-checkpoint_callback = pl.callbacks.ModelCheckpoint(
-    dirpath=f"./{model_prefix}_{str(data_len)}_rows_checkpoint",
-    monitor="avg_val_loss", mode="min", save_top_k=1)
-
-
-# accumulate_grad_batches stores the gradients for a set of
-# batches and then updates the model params.
-# So if batch size=8 and accumulate_grad_batches= 2 then the
-# gradients are accumulated for 2 batches and the model
-# params are updated only at the end of the 2nd batch.
-# The default was to update the model params at the end of each batch
-
-train_params = dict(
-    # accumulate_grad_batches=args.gradient_accumulation_steps,
-    # with this, total batchsize= batchsize* accumulate_grad_batches
-    gpus=args.n_gpu,
-    max_epochs=args.num_train_epochs,
-    precision=16 if args.fp_16 else 32,
-    gradient_clip_val=args.max_grad_norm,
-    checkpoint_callback=checkpoint_callback,
-    check_val_every_n_epoch=args.check_val_every_n_epoch,
-    callbacks=[checkpoint_callback],  # [LoggingCallback()],
-
-    # logger=wandb_logger,
-    # val_check_interval=args.val_check_interval,
-    # amp_level=args.opt_level,
-    # resume_from_checkpoint=args.resume_from_checkpoint, # depreciated
-    # progress_bar_refresh_rate=0
-    # log_every_n_steps=1
-)
-
-if resume_checkpoint:
-    trainer_fit_params = dict(
-        # to resume from this checkpoint
-        ckpt_path=args.resume_from_checkpoint_path,
-        )
-    trained_model = NQ_IR.load_from_checkpoint(
-        resume_from_checkpoint_path, hparams=args)
-else:
-    trainer_fit_params = dict(
-        # to resume from this checkpoint
-        # ckpt_path=args.resume_from_checkpoint_path,
-        )
-    model = NQ_IR(args)
-    trainer = pl.Trainer(**train_params, fast_dev_run=False)
-
-    trainer.fit(model, **trainer_fit_params)
-
-    trained_model = model
-
-# exit()
-
-# trained_model = NQ_IR.load_from_checkpoint(
-#     resume_from_checkpoint_path, hparams=args)
-
-
-test_loader = trained_model.test_dataloader()
-
-
 class Mediator:
-    def __init__(self, dsi, test_loader):
+    def __init__(self, trained_model, test_loader):
+        self.trained_model = trained_model
         self.query_vector = {}
         for batch in test_loader:
             # print(batch)
@@ -878,24 +892,14 @@ class Mediator:
     def measureScores(self, query, query_id):
         # print(query)
         batch = self.query_vector[query_id]
-        document_ids = trained_model.test_model(batch)
+        document_ids = self.trained_model.test_model(batch)
         document_ids = document_ids + document_ids[:(100-len(document_ids))]
 
         return document_ids
 
 
-mediator = Mediator(trained_model, test_loader)
-
-
-doc_ids, processed_docs, processed_queries, query_relevances = pickle.load(
-    open("wasvani.pkl", "rb"))
-
-
-evaluator = EvaluationWaswani(
-    doc_ids, processed_docs, mediator,
-    processed_queries, query_relevances)
-
-evaluator.evaluate()
+if __name__ == "__main__":
+    main()
 
 
 # for batch in test_loader:
