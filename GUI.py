@@ -10,6 +10,7 @@ from DSIWasvaniQuestions import NQ_IR as NQ_IR_Wasvani
 from DSICORD19 import NQ_IR as NQ_IR_Cord19
 from DSIMMARCO import NQ_IR as NQ_IR_MMarco
 from DSINaturalQuestions import NQ_IR as NQ_IR_NQ
+from BM25Query import BM25Query
 
 
 class Relevance:
@@ -180,6 +181,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.doc_ids_arr.append(doc_ids)
         self.processed_docs_arr.append(processed_docs)
 
+        self.bm25_query = []
+        self.bm25_query.append(BM25Query("waswani"))
+        self.bm25_query.append(BM25Query("mmarco"))
+        self.bm25_query.append(BM25Query("cord19"))
+        self.bm25_query.append(BM25Query("naturalquestions"))
+
+
         # Create all models and save it in self
         # When button clicked, then according to the selected dataset,
         # execute the query on the selected model.
@@ -193,32 +201,40 @@ class MainWindow(QtWidgets.QMainWindow):
             trained_model = self.trained_models[0]
             doc_ids = self.doc_ids_arr[0]
             processed_docs = self.processed_docs_arr[0]
+            bm25_query = self.bm25_query[0]
         elif self.radioButton_2.isChecked():
             # selected_dataset = "mmarco"
             trained_model = self.trained_models[1]
             doc_ids = self.doc_ids_arr[1]
             processed_docs = self.processed_docs_arr[1]
+            bm25_query = self.bm25_query[1]
         elif self.radioButton_3.isChecked():
             # selected_dataset = "cord19"
             trained_model = self.trained_models[2]
             doc_ids = self.doc_ids_arr[2]
             processed_docs = self.processed_docs_arr[2]
+            bm25_query = self.bm25_query[2]
         elif self.radioButton_4.isChecked():
             # selected_dataset = "naturalquestions"
             trained_model = self.trained_models[3]
             doc_ids = self.doc_ids_arr[3]
             processed_docs = self.processed_docs_arr[3]
+            bm25_query = self.bm25_query[3]
 
-        results = self.predict(
-            trained_model, query_text,
+
+        processed_query = bm25_query.preprocessQuery_(query_text)
+        results_dsi = self.predict(
+            trained_model, processed_query,
             trained_model.tokenizer,
             doc_ids, processed_docs)
+        
+        results_bm25 = bm25_query.retrieveDocument(query_text, 10)
 
         self.label_4.setText("Results (DSI)")
-        self.label_2.setText(results)
+        self.label_2.setText(results_dsi)
         self.label_5.setText("Results (BM25)")
-        # TODO:
-        self.label_3.setText("Results BM25 TODO")
+        self.label_3.setText(results_bm25)
+
 
     def closeApplication(self):
         QtWidgets.QApplication.quit()
@@ -251,7 +267,7 @@ class MainWindow(QtWidgets.QMainWindow):
             # print("gen_text: ", gen_text)
             return lmap(str.strip, gen_text)
 
-        input_ = "retrieval: " + query
+        input_ = "retrieval: " + " ".join(query)
         if input_.startswith("retrieval"):
             max_length = 20
         else:
