@@ -35,7 +35,7 @@ RESUME_CHECKPOINT = True
 TASK_TYPE = "indexing_retrieval"  # or "indexing_retrieval"
 
 # Ratio is the number of queries present in the training dataset
-QUERY_INSTANCE_RATIO_IN_TRAINING_DATA = 0.2
+QUERY_INSTANCE_RATIO_IN_TRAINING_DATA = 0.8
 
 model_name = "t5-small"
 token_len = 512  # deep tokenizer's output size currently 512
@@ -104,9 +104,9 @@ def main():
         adam_epsilon=1e-8,
         warmup_steps=0,
         # TODO: Change it to 64
-        train_batch_size=32,
-        eval_batch_size=1,
-        num_train_epochs=50,
+        train_batch_size=72,
+        eval_batch_size=72 if not RESUME_CHECKPOINT else 1,
+        num_train_epochs=20,
         gradient_accumulation_steps=4,
         # Number Of gpu
         n_gpu=1,
@@ -137,7 +137,7 @@ def main():
     # Here mode=max so saves the checkpoint with max metric value.
     # save_top_k saves lastest k checkpoints
     checkpoint_callback = pl.callbacks.ModelCheckpoint(
-        dirpath=f"./{model_prefix}_{str(data_len)}_rows_checkpoint",
+        dirpath=checkpoints_dir,
         monitor="avg_val_loss", mode="min", save_top_k=1)
 
     # accumulate_grad_batches stores the gradients for a set of

@@ -68,6 +68,7 @@ def main():
             QUERY_INSTANCE_RATIO_IN_TRAINING_DATA
             }_{model_prefix}_{str(data_len)}_rows_checkpoint/"""
     checkpoint_files = sorted(os.listdir(checkpoints_dir))
+    print(checkpoints_dir)
     resume_from_checkpoint_path = checkpoints_dir
     if RESUME_CHECKPOINT:
         if len(checkpoint_files) == 0:
@@ -100,7 +101,7 @@ def main():
         warmup_steps=0,
         # TODO: Change it to 64
         train_batch_size=64,
-        eval_batch_size=1,
+        eval_batch_size=64 if not RESUME_CHECKPOINT else 1,
         num_train_epochs=50,
         gradient_accumulation_steps=4,
         # Number Of gpu
@@ -132,7 +133,7 @@ def main():
     # Here mode=max so saves the checkpoint with max metric value.
     # save_top_k saves lastest k checkpoints
     checkpoint_callback = pl.callbacks.ModelCheckpoint(
-        dirpath=f"./{model_prefix}_{str(data_len)}_rows_checkpoint",
+        dirpath=checkpoints_dir,
         monitor="avg_val_loss", mode="min", save_top_k=1)
 
     # accumulate_grad_batches stores the gradients for a set of
@@ -410,8 +411,8 @@ class NQData(Dataset):
                     if k == "-":
                         continue
                     candidate_queries.append((k, v))
-                print(candidate_queries)
-                print(len(candidate_queries))
+                # print(candidate_queries)
+                # print(len(candidate_queries))
 
                 considered_test_count = min(
                     len(candidate_queries),
@@ -437,7 +438,7 @@ class NQData(Dataset):
                 # d1 = d1[d1["inp"] != "retrieval: -"]
                 dataset.extend(d1.to_dict(orient='records'))
                 # print(d1)
-                print(len(d1))
+                # print(len(d1))
                 return dataset
 
         if self.type_path == "test":
@@ -855,11 +856,20 @@ class NQ_IR(pl.LightningModule):
 
         # inp_ids = batch["source_ids"]
 
+        # Old
+        # generated_ids = self.model.generate(
+        #     batch["source_ids"],
+        #     attention_mask=batch["source_mask"],
+        #     use_cache=True,
+        #     decoder_attention_mask=batch['target_mask'],
+        #     max_length=5,
+        #     num_beams=20,
+        #     num_return_sequences=20)
+
         generated_ids = self.model.generate(
             batch["source_ids"],
             attention_mask=batch["source_mask"],
             use_cache=True,
-            decoder_attention_mask=batch['target_mask'],
             max_length=5,
             num_beams=20,
             num_return_sequences=20)

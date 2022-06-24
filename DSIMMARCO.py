@@ -40,7 +40,7 @@ RESUME_CHECKPOINT = True
 TASK_TYPE = "indexing_retrieval"  # or "indexing_retrieval"
 
 # Ratio is the number of queries present in the training dataset
-QUERY_INSTANCE_RATIO_IN_TRAINING_DATA = 0.2
+QUERY_INSTANCE_RATIO_IN_TRAINING_DATA = 0.8
 
 random.seed(59)
 np.random.seed(37)
@@ -81,6 +81,7 @@ def main():
             QUERY_INSTANCE_RATIO_IN_TRAINING_DATA
             }_{model_prefix}_{str(data_len)}_rows_checkpoint/"""
     checkpoint_files = sorted(os.listdir(checkpoints_dir))
+    print(checkpoints_dir)
     resume_from_checkpoint_path = checkpoints_dir
     if RESUME_CHECKPOINT:
         if len(checkpoint_files) == 0:
@@ -112,8 +113,8 @@ def main():
         adam_epsilon=1e-8,
         warmup_steps=0,
         # TODO: Change it to 64
-        train_batch_size=1,
-        eval_batch_size=1,
+        train_batch_size=64,
+        eval_batch_size=64 if not RESUME_CHECKPOINT else 1,
         num_train_epochs=50,
         gradient_accumulation_steps=4,
         # Number Of gpu
@@ -145,7 +146,7 @@ def main():
     # Here mode=max so saves the checkpoint with max metric value.
     # save_top_k saves lastest k checkpoints
     checkpoint_callback = pl.callbacks.ModelCheckpoint(
-        dirpath=f"./{model_prefix}_{str(data_len)}_rows_checkpoint",
+        dirpath=checkpoints_dir,
         monitor="avg_val_loss", mode="min", save_top_k=1)
 
     # accumulate_grad_batches stores the gradients for a set of
