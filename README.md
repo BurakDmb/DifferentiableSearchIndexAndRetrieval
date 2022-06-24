@@ -50,6 +50,21 @@ conda activate dsi
 python DSINaturalQuestions.py
 ```
 
+## Results
+
+Wasvani:
+
+![Wasvani](Results/WASVANI.png "Wasvani")
+
+MMARCO:
+
+![MMARCO](Results/MMARCO.png "MMARCO")
+
+CORD19:
+![CORD19](Results/CORD19.png "CORD19")
+
+NaturalQuestions:
+![NaturalQuestions](Results/NaturalQuestions.png "NaturalQuestions")
 
 
 
