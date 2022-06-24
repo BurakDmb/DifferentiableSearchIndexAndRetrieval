@@ -40,15 +40,15 @@ RESUME_CHECKPOINT = True
 TASK_TYPE = "indexing_retrieval"  # or "indexing_retrieval"
 
 # Ratio is the number of queries present in the training dataset
-QUERY_INSTANCE_RATIO_IN_TRAINING_DATA = 0.8
+QUERY_INSTANCE_RATIO_IN_TRAINING_DATA = 0.2
 
 random.seed(59)
 np.random.seed(37)
 
 df_document = pickle.load(open("mmarcodataframe.pkl", "rb"))
-print(
-    'Records where doc_id is null',
-    len(df_document[df_document['doc_id'].isna()]))
+# print(
+#     'Records where doc_id is null',
+#     len(df_document[df_document['doc_id'].isna()]))
 df_document['doc_id'] = df_document['doc_id'].astype('str')
 df_document_copy = df_document.copy()
 
@@ -58,15 +58,15 @@ df_query['doc_id'] = df_query['doc_id'].astype('str')
 
 
 data_len = len(df_document)
-print(df_document)
+# print(df_document)
 
-print(df_document.columns)
-print(df_document["doc_id"])
+# print(df_document.columns)
+# print(df_document["doc_id"])
 
-print(df_query)
+# print(df_query)
 
-print(df_query["question_text"])
-print(df_query["doc_id"])
+# print(df_query["question_text"])
+# print(df_query["doc_id"])
 
 
 model_name = "t5-small"
@@ -81,7 +81,7 @@ def main():
             QUERY_INSTANCE_RATIO_IN_TRAINING_DATA
             }_{model_prefix}_{str(data_len)}_rows_checkpoint/"""
     checkpoint_files = sorted(os.listdir(checkpoints_dir))
-    print(checkpoints_dir)
+    print("Checkpoints dir: ", checkpoints_dir)
     resume_from_checkpoint_path = checkpoints_dir
     if RESUME_CHECKPOINT:
         if len(checkpoint_files) == 0:
@@ -90,7 +90,6 @@ def main():
         else:
             resume_from_checkpoint_path = (
                 checkpoints_dir + checkpoint_files[-1])
-        print(resume_from_checkpoint_path)
 
     # log_dir = "./logs/log_t5-small-512_50000_rows_2022_05_01_13_07_19.csv"
     log_dir = (
@@ -424,8 +423,8 @@ class NQData(Dataset):
                     if k == "-":
                         continue
                     candidate_queries.append((k, v))
-                print(candidate_queries)
-                print(len(candidate_queries))
+                # print(candidate_queries)
+                # print(len(candidate_queries))
 
                 considered_test_count = min(
                     len(candidate_queries),
@@ -451,7 +450,7 @@ class NQData(Dataset):
                 # d1 = d1[d1["inp"] != "retrieval: -"]
                 dataset.extend(d1.to_dict(orient='records'))
                 # print(d1)
-                print(len(d1))
+                # print(len(d1))
                 # exit()
                 return dataset
 

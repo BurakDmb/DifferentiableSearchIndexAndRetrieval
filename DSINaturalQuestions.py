@@ -36,19 +36,19 @@ class Relevance:
 
 # To use the latest checkpoint, set this variable to True.
 # For training, set this to False.
-RESUME_CHECKPOINT = False
+RESUME_CHECKPOINT = True
 TASK_TYPE = "indexing_retrival"  # or "indexing_retrival"
 
 # Ratio is the number of queries present in the training dataset
-QUERY_INSTANCE_RATIO_IN_TRAINING_DATA = 0.2
+QUERY_INSTANCE_RATIO_IN_TRAINING_DATA = 0.8
 
 random.seed(59)
 np.random.seed(37)
 
 df_document = pickle.load(open("naturalquestionsdataframe.pkl", "rb"))
-print(
-    'Records where doc_id is null',
-    len(df_document[df_document['doc_id'].isna()]))
+# print(
+#     'Records where doc_id is null',
+#     len(df_document[df_document['doc_id'].isna()]))
 df_document['doc_id'] = df_document['doc_id'].astype('str')
 df_document_copy = df_document.copy()
 
@@ -58,10 +58,10 @@ df_query['doc_id'] = df_query['doc_id'].astype('str')
 
 
 data_len = len(df_document)
-print(df_document)
+# print(df_document)
 
-print(df_document.columns)
-print(len(df_query))
+# print(df_document.columns)
+# print(len(df_query))
 
 model_name = "t5-small"
 token_len = 512  # deep tokenizer's output size currently 512
@@ -76,7 +76,7 @@ def main():
             QUERY_INSTANCE_RATIO_IN_TRAINING_DATA
             }_{model_prefix}_{str(data_len)}_rows_checkpoint/"""
     checkpoint_files = sorted(os.listdir(checkpoints_dir))
-    print(checkpoints_dir)
+    print("Checkpoints dir: ", checkpoints_dir)
     resume_from_checkpoint_path = checkpoints_dir
     if RESUME_CHECKPOINT:
         if len(checkpoint_files) == 0:
@@ -85,7 +85,6 @@ def main():
         else:
             resume_from_checkpoint_path = (
                 checkpoints_dir + checkpoint_files[-1])
-        print(resume_from_checkpoint_path)
 
     # log_dir = "./logs/log_t5-small-512_50000_rows_2022_05_01_13_07_19.csv"
     log_dir = (
