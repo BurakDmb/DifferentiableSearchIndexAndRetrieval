@@ -897,7 +897,7 @@ class Mediator:
             if query_id != -1:
                 self.query_vector[query_id] = batch
         print("Okayyy..")
-        self.method_name = "dsi"
+        self.method_name = "dsi"+str(QUERY_INSTANCE_RATIO_IN_TRAINING_DATA)
 
     def measureScores(self, query, query_id):
         # print(query)

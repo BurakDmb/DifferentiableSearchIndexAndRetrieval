@@ -3,6 +3,8 @@ import nltk.metrics.scores
 import math
 import matplotlib.pyplot as plt
 from tqdm.auto import tqdm
+import pickle
+import time
 
 
 class EvaluationCORD19:
@@ -278,3 +280,22 @@ class EvaluationCORD19:
         plt.xlabel("Recall")
         plt.ylabel("Average Precision")
         plt.show()
+
+        if self.ranking_method.method_name == "random":
+            result_path = (
+                "Results/cord19(randomranking)"+str(time.time()*1000)+".pkl")
+        else:
+            result_path = (
+                "Results/cord19("+self.ranking_method.method_name+").pkl")
+
+        pickle.dump((
+            total_hit,
+            total_precision,
+            total_recall,
+            total_f1,
+            total_map,
+            total_mrr,
+            calculated_precisions_at_11,
+            total_dcg,
+            total_ndcg
+            ), open(result_path, "wb"))

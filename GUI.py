@@ -155,8 +155,8 @@ def predict(trained_model, query, tokenizer):
         [input_], max_length=max_length,
         padding='max_length', truncation=True, return_tensors="pt")
 
-    source_ids = source["input_ids"].squeeze()
-    src_mask = source["attention_mask"].squeeze()
+    source_ids = source["input_ids"]
+    src_mask = source["attention_mask"]
 
     generated_ids = trained_model.model.generate(
         source_ids,

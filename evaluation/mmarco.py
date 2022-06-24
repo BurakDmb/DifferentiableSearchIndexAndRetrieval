@@ -2,6 +2,8 @@ import numpy as np
 import nltk.metrics.scores
 import math
 import matplotlib.pyplot as plt
+import pickle
+import time
 from tqdm.auto import tqdm
 
 
@@ -274,3 +276,22 @@ class EvaluationMMARCO:
         plt.xlabel("Recall")
         plt.ylabel("Average Precision")
         plt.show()
+
+        if self.ranking_method.method_name == "random":
+            result_path = (
+                "Results/mmarco(randomranking)"+str(time.time()*1000)+".pkl")
+        else:
+            result_path = (
+                "Results/mmarco("+self.ranking_method.method_name+").pkl")
+
+        pickle.dump((
+            total_hit,
+            total_precision,
+            total_recall,
+            total_f1,
+            total_map,
+            total_mrr,
+            calculated_precisions_at_11,
+            total_dcg,
+            total_ndcg
+            ), open(result_path, "wb"))
