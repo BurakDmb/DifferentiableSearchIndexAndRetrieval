@@ -14,8 +14,13 @@ pip install ir_datasets
 
 ## Datasets
 
-For the study, Vaswani, MMarco, Cord19 and Natural Questions datasets have been used.
+For the study, Vaswani, MMarco, Cord19 and Natural Questions datasets have been used. For the project scope, datasets are subsampled to smaller sets. Please download all of these files (~1GB) to the root folder of this repository. Download link: https://drive.google.com/drive/folders/1tx2R_PVV2J5nvUaNM-xbWzRSHFZCsiGX?usp=sharing
 
+# Method
+
+In DSI implementation, codes from m-shilpa (Reference: https://github.com/m-shilpa/Transformer_Memory_As_A_Differentiable_Search_Index) have been used as the foundation of the T5 transformer model&tokenizer. This repository uses huggingface tranformers library to download the pre-trained T5 model. After than, it fine tunes for indexing, retrieval and indexing_retrieval tasks defined as the original DSI paper.
+
+For BM25 implementation, gensim library has been used. (Reference: https://github.com/RaRe-Technologies/gensim)
 
 ## Evaluation
 
