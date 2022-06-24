@@ -174,6 +174,19 @@ def main():
             )
         trained_model = NQ_IR.load_from_checkpoint(
             resume_from_checkpoint_path, hparams=args)
+        test_loader = trained_model.test_dataloader()
+
+        mediator = Mediator(trained_model, test_loader)
+
+        doc_ids, processed_docs, \
+            processed_queries, query_relevances = pickle.load(
+                open("cord19.pkl", "rb"))
+
+        evaluator = EvaluationCORD19(
+            doc_ids, processed_docs, mediator,
+            processed_queries, query_relevances)
+
+        evaluator.evaluate()
     else:
         trainer_fit_params = dict(
             # to resume from this checkpoint
@@ -185,19 +198,6 @@ def main():
         trainer.fit(model, **trainer_fit_params)
 
         trained_model = model
-
-    test_loader = trained_model.test_dataloader()
-
-    mediator = Mediator(trained_model, test_loader)
-
-    doc_ids, processed_docs, processed_queries, query_relevances = pickle.load(
-        open("cord19.pkl", "rb"))
-
-    evaluator = EvaluationCORD19(
-        doc_ids, processed_docs, mediator,
-        processed_queries, query_relevances)
-
-    evaluator.evaluate()
 
 
 class Relevance:
