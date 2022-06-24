@@ -9,6 +9,14 @@ import string
 from DSIWasvaniQuestions import NQ_IR as NQ_IR_Wasvani
 from DSICORD19 import NQ_IR as NQ_IR_Cord19
 from DSIMMARCO import NQ_IR as NQ_IR_MMarco
+from DSINaturalQuestions import NQ_IR as NQ_IR_NQ
+
+
+class Relevance:
+    def _init_(self):
+        self.doc_id = None
+        self.query_id = None
+        self.relevance = None
 
 
 # To use the latest checkpoint, set this variable to True.
@@ -41,10 +49,19 @@ df_cord19_query = pickle.load(open("cord19dataframe(query).pkl", "rb"))
 df_cord19_query['doc_id'] = df_cord19_query['doc_id'].astype('str')
 data_len_cord19 = len(df_cord19_document)
 
+
+df_nq_document = pickle.load(open("naturalquestionsdataframe.pkl", "rb"))
+df_nq_document['doc_id'] = df_nq_document['doc_id'].astype('str')
+df_nq_document_copy = df_nq_document.copy()
+df_nq_query = pickle.load(open("naturalquestionsdataframe(query).pkl", "rb"))
+df_nq_query['doc_id'] = df_nq_query['doc_id'].astype('str')
+data_len_nq = len(df_nq_document)
+
 data_len = {}
 data_len['waswani'] = data_len_waswani
 data_len['mmarco'] = data_len_mmarco
 data_len['cord19'] = data_len_cord19
+data_len['nq'] = data_len_nq
 
 model_name = "t5-small"
 token_len = 512  # deep tokenizer's output size currently 512
@@ -67,7 +84,7 @@ def load_model(class_name="waswani", NQ_IR_Class=NQ_IR_Wasvani):
     else:
         resume_from_checkpoint_path = (
             checkpoints_dir + checkpoint_files[-1])
-    print(resume_from_checkpoint_path)
+    print("Checkpoints dir: ", checkpoints_dir)
 
     args_dict = dict(
         # output_dir: path to save the checkpoints
@@ -116,61 +133,6 @@ def load_model(class_name="waswani", NQ_IR_Class=NQ_IR_Wasvani):
     return trained_model
 
 
-def predict(trained_model, query, tokenizer):
-    def normalize_answer(s):
-
-        def white_space_fix(text):
-            return " ".join(text.split())
-
-        def remove_punc(text):
-            exclude = set(string.punctuation)
-            return "".join(ch for ch in text if ch not in exclude)
-
-        def lower(text):
-            return text.lower()
-
-        return white_space_fix((remove_punc(lower(s))))
-
-    def lmap(f, x):
-        return list(map(f, x))
-
-    def ids_to_clean_text(generated_ids):
-        gen_text = tokenizer.batch_decode(
-            generated_ids,
-            skip_special_tokens=True,
-            clean_up_tokenization_spaces=True
-        )
-        # print("gen_text: ", gen_text)
-        return lmap(str.strip, gen_text)
-
-    input_ = "retrieval:" + query
-    if input_.startswith("retrieval"):
-        max_length = 20
-    else:
-        max_length = 4096
-
-    input_ = query.strip()
-
-    source = tokenizer.batch_encode_plus(
-        [input_], max_length=max_length,
-        padding='max_length', truncation=True, return_tensors="pt")
-
-    source_ids = source["input_ids"]
-    src_mask = source["attention_mask"]
-
-    generated_ids = trained_model.model.generate(
-        source_ids,
-        attention_mask=src_mask,
-        use_cache=True,
-        max_length=5,
-        num_beams=20,
-        num_return_sequences=20)
-
-    preds = ids_to_clean_text(generated_ids)
-    preds = [normalize_answer(s) for s in preds if len(s) > 0 and s != " "]
-    return preds
-
-
 class MainWindow(QtWidgets.QMainWindow):
 
     def __init__(self, *args, **kwargs):
@@ -182,7 +144,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.actionExit_2.triggered.connect(self.closeApplication)
 
         self.radioButton.setChecked(True)  # Wasvani is selected by default
-        print(dir(self))
+        # print(dir(self))
 
         # Loading models
         self.trained_models = []
@@ -192,6 +154,31 @@ class MainWindow(QtWidgets.QMainWindow):
             load_model(class_name="mmarco", NQ_IR_Class=NQ_IR_MMarco))
         self.trained_models.append(
             load_model(class_name="cord19", NQ_IR_Class=NQ_IR_Cord19))
+        self.trained_models.append(
+            load_model(class_name="nq", NQ_IR_Class=NQ_IR_NQ))
+
+        self.doc_ids_arr = []
+        self.processed_docs_arr = []
+
+        doc_ids, processed_docs, _, _ = pickle.load(
+            open("wasvani.pkl", "rb"))
+        self.doc_ids_arr.append(doc_ids)
+        self.processed_docs_arr.append(processed_docs)
+
+        doc_ids, processed_docs, _, _ = pickle.load(
+            open("mmarco.pkl", "rb"))
+        self.doc_ids_arr.append(doc_ids)
+        self.processed_docs_arr.append(processed_docs)
+
+        doc_ids, processed_docs, _, _ = pickle.load(
+            open("cord19.pkl", "rb"))
+        self.doc_ids_arr.append(doc_ids)
+        self.processed_docs_arr.append(processed_docs)
+
+        doc_ids, processed_docs, _, _ = pickle.load(
+            open("naturalquestions.pkl", "rb"))
+        self.doc_ids_arr.append(doc_ids)
+        self.processed_docs_arr.append(processed_docs)
 
         # Create all models and save it in self
         # When button clicked, then according to the selected dataset,
@@ -199,28 +186,105 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def pushButtonClicked(self):
         query_text = self.plainTextEdit.toPlainText()
-        selected_dataset = "None"
+        # selected_dataset = "None"
 
         if self.radioButton.isChecked():
-            selected_dataset = "waswani"
+            # selected_dataset = "waswani"
             trained_model = self.trained_models[0]
+            doc_ids = self.doc_ids_arr[0]
+            processed_docs = self.processed_docs_arr[0]
         elif self.radioButton_2.isChecked():
-            selected_dataset = "mmarco"
+            # selected_dataset = "mmarco"
             trained_model = self.trained_models[1]
+            doc_ids = self.doc_ids_arr[1]
+            processed_docs = self.processed_docs_arr[1]
         elif self.radioButton_3.isChecked():
-            selected_dataset = "cord19"
+            # selected_dataset = "cord19"
             trained_model = self.trained_models[2]
-        # TODO:
-        predict(trained_model, query_text, trained_model.tokenizer)
+            doc_ids = self.doc_ids_arr[2]
+            processed_docs = self.processed_docs_arr[2]
+        elif self.radioButton_4.isChecked():
+            # selected_dataset = "naturalquestions"
+            trained_model = self.trained_models[3]
+            doc_ids = self.doc_ids_arr[3]
+            processed_docs = self.processed_docs_arr[3]
 
-        print("Query text: "+query_text)
-        print("Selected dataset: "+selected_dataset)
-        print("Button clicked...")
-        text_ = "1-deneme\n2-1234\n3-5678"
-        self.label_2.setText(text_)
+        results = self.predict(
+            trained_model, query_text,
+            trained_model.tokenizer,
+            doc_ids, processed_docs)
+
+        self.label_4.setText("Results (DSI)")
+        self.label_2.setText(results)
+        self.label_5.setText("Results (BM25)")
+        # TODO:
+        self.label_3.setText("Results BM25 TODO")
 
     def closeApplication(self):
         QtWidgets.QApplication.quit()
+
+    def predict(
+            self, trained_model, query, tokenizer, doc_ids, processed_docs):
+        def normalize_answer(s):
+
+            def white_space_fix(text):
+                return " ".join(text.split())
+
+            def remove_punc(text):
+                exclude = set(string.punctuation)
+                return "".join(ch for ch in text if ch not in exclude)
+
+            def lower(text):
+                return text.lower()
+
+            return white_space_fix((remove_punc(lower(s))))
+
+        def lmap(f, x):
+            return list(map(f, x))
+
+        def ids_to_clean_text(generated_ids):
+            gen_text = tokenizer.batch_decode(
+                generated_ids,
+                skip_special_tokens=True,
+                clean_up_tokenization_spaces=True
+            )
+            # print("gen_text: ", gen_text)
+            return lmap(str.strip, gen_text)
+
+        input_ = "retrieval: " + query
+        if input_.startswith("retrieval"):
+            max_length = 20
+        else:
+            max_length = 4096
+
+        input_ = input_.strip()
+
+        source = tokenizer.batch_encode_plus(
+            [input_], max_length=max_length,
+            padding='max_length', truncation=True, return_tensors="pt")
+
+        source_ids = source["input_ids"]
+        src_mask = source["attention_mask"]
+
+        generated_ids = trained_model.model.generate(
+            source_ids,
+            attention_mask=src_mask,
+            use_cache=True,
+            max_length=5,
+            num_beams=10,
+            num_return_sequences=10)
+
+        preds = ids_to_clean_text(generated_ids)
+        preds = [normalize_answer(s) for s in preds if len(s) > 0 and s != " "]
+
+        results = []
+        for pred in preds:
+            doc_index = doc_ids.index(str(pred))
+            results.append(
+                "Docid " +
+                str(doc_index)+": " +
+                " ".join(processed_docs[doc_index]))
+        return "\n\n".join(results)
 
 
 app = QtWidgets.QApplication(sys.argv)

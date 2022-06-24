@@ -196,11 +196,11 @@ class EvaluationNaturalQuestions:
 
         if self.ranking_method.method_name == "random":
             result_path = (
-                "../Results/naturalquestions(randomranking)" +
+                "Results/naturalquestions(randomranking)" +
                 str(time.time()*1000)+".pkl")
         else:
             result_path = (
-                "../Results/naturalquestions(" +
+                "Results/naturalquestions(" +
                 self.ranking_method.method_name+").pkl")
 
         pickle.dump((
