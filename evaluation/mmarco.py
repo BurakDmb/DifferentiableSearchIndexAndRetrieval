@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import pickle
 import time
 from tqdm.auto import tqdm
+import os
 
 
 class EvaluationMMARCO:
@@ -277,6 +278,7 @@ class EvaluationMMARCO:
         plt.ylabel("Average Precision")
         plt.show()
 
+        os.makedirs("Results", exist_ok=True)
         if self.ranking_method.method_name == "random":
             result_path = (
                 "Results/mmarco(randomranking)"+str(time.time()*1000)+".pkl")

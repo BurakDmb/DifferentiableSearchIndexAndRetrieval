@@ -80,6 +80,7 @@ def main():
         f"""mmarco_{
             QUERY_INSTANCE_RATIO_IN_TRAINING_DATA
             }_{model_prefix}_{str(data_len)}_rows_checkpoint/"""
+    os.makedirs(checkpoints_dir, exist_ok=True)
     checkpoint_files = sorted(os.listdir(checkpoints_dir))
     print("Checkpoints dir: ", checkpoints_dir)
     resume_from_checkpoint_path = checkpoints_dir

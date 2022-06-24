@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from tqdm.auto import tqdm
 import pickle
 import time
+import os
 
 
 class EvaluationCORD19:
@@ -280,7 +281,7 @@ class EvaluationCORD19:
         plt.xlabel("Recall")
         plt.ylabel("Average Precision")
         plt.show()
-
+        os.makedirs("Results", exist_ok=True)
         if self.ranking_method.method_name == "random":
             result_path = (
                 "Results/cord19(randomranking)"+str(time.time()*1000)+".pkl")
